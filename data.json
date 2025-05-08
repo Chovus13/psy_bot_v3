@@ -1,0 +1,22 @@
+{
+  "price": 0.020095000000000002,
+  "support": 0.02008,
+  "resistance": 0.02052,
+  "position": "Short",
+  "balance": 0.00086895,
+  "unimmr": 0.0,
+  "logs": [
+    "2025-05-08 14:51:16.798745: Zid na podr\u0161ci: True (cena: 0.01989, volumen: 4917.26 ETH), Zid na otporu: True (cena: 0.0207, volumen: 5490.249999999999 ETH)\n",
+    "2025-05-08 14:51:28.238822: Zid na podr\u0161ci: True (cena: 0.01989, volumen: 4977.209999999999 ETH), Zid na otporu: True (cena: 0.0207, volumen: 5490.4 ETH)\n",
+    "2025-05-08 14:51:39.665893: Zid na podr\u0161ci: True (cena: 0.01989, volumen: 5175.04 ETH), Zid na otporu: True (cena: 0.0207, volumen: 5521.53 ETH)\n",
+    "2025-05-08 14:51:51.074621: Zid na podr\u0161ci: True (cena: 0.01989, volumen: 6197.049999999999 ETH), Zid na otporu: True (cena: 0.02069, volumen: 6654.180000000001 ETH)\n",
+    "2025-05-08 14:52:02.506688: Zid na podr\u0161ci: True (cena: 0.0199, volumen: 6203.029999999999 ETH), Zid na otporu: True (cena: 0.0207, volumen: 6739.070000000002 ETH)\n"
+  ],
+  "isLive": true,
+  "takeFromHere": false,
+  "tradeAtNight": false,
+  "leverage": 3,
+  "advancedMode": false,
+  "tradeAmount": 0.06,
+  "isRunning": true
+}
