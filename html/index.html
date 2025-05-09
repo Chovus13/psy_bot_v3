@@ -1,0 +1,54 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Psy Bot</title>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <h1>Psy Bot Kontrola</h1>
+    <div>
+        <p>Cena: <span id="price">0</span></p>
+        <p>Podrška: <span id="support">0</span></p>
+        <p>Otpor: <span id="resistance">0</span></p>
+        <p>Pozicija: <span id="position">None</span></p>
+        <p>BTC Balans: <span id="balance">0</span></p>
+        <p>Unrealized MMR: <span id="unimmr">0</span></p>
+    </div>
+    <div>
+        <h2>Manuelni Režim</h2>
+        <button onclick="toggleManual('on')">Uključi Manuelni Režim</button>
+        <button onclick="toggleManual('off')">Isključi Manuelni Režim</button>
+        <button onclick="manualCommand('disable_tp_sl')">Isključi TP/SL</button>
+        <button onclick="manualCommand('close_position')">Zatvori Poziciju</button>
+    </div>
+    <script>
+        const ws = new WebSocket("ws://" + window.location.host + "/ws");
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            document.getElementById("price").innerText = data.price;
+            document.getElementById("support").innerText = data.support;
+            document.getElementById("resistance").innerText = data.resistance;
+            document.getElementById("position").innerText = data.position;
+            document.getElementById("balance").innerText = data.balance;
+            document.getElementById("unimmr").innerText = data.unimmr;
+        };
+
+        async function toggleManual(value) {
+            await fetch("/manual", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ command: "toggle", value: value })
+            });
+        }
+
+        async function manualCommand(command) {
+            await fetch("/manual", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ command: command })
+            });
+        }
+    </script>
+</body>
+</html>

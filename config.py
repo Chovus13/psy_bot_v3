@@ -1,6 +1,11 @@
-API_KEY = '4b2280c6f8978c9e1427247d3afe1f983002da3ab3c8de0a9594bd520be36f84'
-API_SECRET = '4561dbdfa8a487dced6d7ebd33600540d4746aa8ad17dadcfc0664f85bbe0114'
-WALL_THRESHOLD_BTC = 1  # Smanjeno sa 2 na 1 BTC
-WALL_PROXIMITY_PCT = 0.1  # Povećano sa 0.08 na 0.1%
-SYMBOL = 'ETH/BTC'
-LEVERAGE = 10
+WALL_RANGE_SPREAD = 0.00028  # Maksimalni raspon za zidove
+PRICE_PRECISION = 5  # Cene na 5 decimala
+VOLUME_PRECISION = 2  # Volumen na 2 decimale
+MIN_WALL_VOLUME = 50.0  # Minimalni volumen za zid (ETH)
+HILL_WALL_VOLUME = 150.0  # "Brdašce"
+MOUNTAIN_WALL_VOLUME = 250.0  # "Brdo"
+EPIC_WALL_VOLUME = 500.0  # "Planina"
+TARGET_DIGITS = [2, 3, 7, 8]  # Prioritet za 5. decimalu
+SPECIAL_DIGITS = [1, 9]  # Za obrnute poteze (rokada)
+PROFIT_TARGET = 0.00004  # Cilj: 4 pipsa
+LEVERAGE = 5  # Leverage x20
