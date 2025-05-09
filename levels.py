@@ -1,36 +1,66 @@
-def get_nearest_levels(current_price, advanced_mode=False):
-    # Ako cena nije validna, vrati podrazumevane vrednosti
-    if not current_price or current_price <= 0:
-        return 0.01862, 0.01868
+import logging
+from config import TARGET_DIGITS, SPECIAL_DIGITS, PROFIT_TARGET, MIN_WALL_VOLUME, HILL_WALL_VOLUME, MOUNTAIN_WALL_VOLUME, EPIC_WALL_VOLUME
 
-    # Pronađi osnovni nivo (zaokruži na najbliži x.xxxx0)
-    base = round(current_price * 10000) / 10000  # Zaokruživanje na 4 decimale
-    base = (int(base * 100000) // 10) / 10000  # Zaokruživanje na x.xxxx0
+logging.basicConfig(level=logging.INFO)
 
-    # Generiši nivoe
-    step = 0.00005  # Smanjujemo korak na 5 pipova umesto 10
-    historical_levels = []
-    start_level = int(base * 10000) - (int(base * 10000) % 10)  # Počinjemo od x.xxxx0
+def classify_wall_volume(volume):
+    if volume >= EPIC_WALL_VOLUME:
+        return "Planina"
+    elif volume >= MOUNTAIN_WALL_VOLUME:
+        return "Brdo"
+    elif volume >= HILL_WALL_VOLUME:
+        return "Brdašce"
+    return "Zid"
 
-    if advanced_mode:
-        # Adaptivne zone: donja (1,2,3), gornja (7,8,9)
-        for i in range(-5, 6):  # Smanjujemo raspon na ±5 nivoa
-            level = (start_level + i * 5) / 10000  # Nivo na x.xxxx0 (korak od 5 pipova)
-            for offset in [0.00001, 0.00002, 0.00003, 0.00007, 0.00008, 0.00009]:
-                historical_levels.append(level + offset)
-    else:
-        # Standardni nivoi: x.xxxx2 i x.xxxx8
-        for i in range(-5, 6):  # Smanjujemo raspon na ±5 nivoa
-            level = (start_level + i * 5) / 10000  # Nivo na x.xxxx0 (korak od 5 pipova)
-            level_2 = level + 0.00002  # x.xxxx2
-            level_8 = level + 0.00008  # x.xxxx8
-            historical_levels.extend([level_2, level_8])
+def generate_signals(current_price, walls, trend):
+    signals = []
+    support_walls = sorted(walls['support'], key=lambda x: x[1], reverse=True)  # Sortiraj po volumenu
+    resistance_walls = sorted(walls['resistance'], key=lambda x: x[1], reverse=True)
 
-    # Sortiraj nivoe
-    historical_levels.sort()
+    for price, volume in support_walls:
+        last_digit = int(str(price)[-1])
+        wall_type = classify_wall_volume(volume)
+        if last_digit in TARGET_DIGITS:  # 2, 3 za LONG
+            signals.append({
+                'type': 'LONG',
+                'entry_price': price,
+                'stop_loss': round(price - 0.00010, 5),
+                'take_profit': round(price + PROFIT_TARGET, 5),
+                'wall_type': wall_type,
+                'volume': volume
+            })
+        elif last_digit == 1 and trend == 'DOWN':  # Rokada: SHORT na 9
+            signals.append({
+                'type': 'SHORT',
+                'entry_price': round(price - 0.00002, 5),  # Ciljaj 9 (npr. 0.01999)
+                'stop_loss': round(price + 0.00010, 5),
+                'take_profit': round(price - PROFIT_TARGET - 0.00002, 5),
+                'wall_type': wall_type,
+                'volume': volume
+            })
 
-    # Pronađi najbliže nivoe
-    support = max([level for level in historical_levels if level < current_price], default=historical_levels[0])
-    resistance = min([level for level in historical_levels if level > current_price], default=historical_levels[-1])
+    for price, volume in resistance_walls:
+        last_digit = int(str(price)[-1])
+        wall_type = classify_wall_volume(volume)
+        if last_digit in TARGET_DIGITS:  # 7, 8 za SHORT
+            signals.append({
+                'type': 'SHORT',
+                'entry_price': price,
+                'stop_loss': round(price + 0.00010, 5),
+                'take_profit': round(price - PROFIT_TARGET, 5),
+                'wall_type': wall_type,
+                'volume': volume
+            })
+        elif last_digit == 9 and trend == 'UP':  # Rokada: LONG na 1
+            signals.append({
+                'type': 'LONG',
+                'entry_price': round(price + 0.00002, 5),  # Ciljaj 1 (npr. 0.02011)
+                'stop_loss': round(price - 0.00010, 5),
+                'take_profit': round(price + PROFIT_TARGET + 0.00002, 5),
+                'wall_type': wall_type,
+                'volume': volume
+            })
 
-    return support, resistance
+    for signal in signals:
+        logging.info(f"Signal: {signal['type']} na {signal['entry_price']}, zid: {signal['wall_type']} ({signal['volume']} ETH)")
+    return signals
