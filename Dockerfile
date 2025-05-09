@@ -1,13 +1,6 @@
 FROM python:3.9-slim
-
 WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
 COPY . .
-
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Kreiraj korisnika i osiguraj dozvole
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
-USER appuser
-
-EXPOSE 8000
-CMD ["supervisord", "-c", "/app/supervisord.conf"]
+CMD ["python", "main.py"]
