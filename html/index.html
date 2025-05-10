@@ -1,53 +1,38 @@
-<!-- index.html -->
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Psy Bot</title>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ETH/BTC Trading Bot</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #1a1a1a; color: #fff; text-align: center; padding: 20px; }
+        h1 { color: #00ff00; }
+        #logs { background: #333; padding: 20px; margin-top: 20px; height: 400px; overflow-y: scroll; text-align: left; }
+        button { padding: 10px 20px; margin: 10px; background: #00ff00; border: none; cursor: pointer; }
+        button:hover { background: #00cc00; }
+    </style>
 </head>
 <body>
-    <h1>Psy Bot Kontrola</h1>
+    <h1>ETH/BTC Trading Bot</h1>
     <div>
-        <p>Cena: <span id="price">0</span></p>
-        <p>Podrška: <span id="support">0</span></p>
-        <p>Otpor: <span id="resistance">0</span></p>
-        <p>Pozicija: <span id="position">None</span></p>
-        <p>BTC Balans: <span id="balance">0</span></p>
-        <p>Unrealized MMR: <span id="unimmr">0</span></p>
+        <button onclick="startBot()">Start Bot</button>
+        <button onclick="stopBot()">Stop Bot</button>
     </div>
-    <div>
-        <h2>Manuelni Režim</h2>
-        <button onclick="toggleManual('on')">Uključi Manuelni Režim</button>
-        <button onclick="toggleManual('off')">Isključi Manuelni Režim</button>
-        <button onclick="manualCommand('disable_tp_sl')">Isključi TP/SL</button>
-        <button onclick="manualCommand('close_position')">Zatvori Poziciju</button>
-    </div>
+    <div id="logs"></div>
     <script>
-        const ws = new WebSocket("ws://" + window.location.host + "/ws");
+        const ws = new WebSocket('ws://' + window.location.host + '/ws');
         ws.onmessage = function(event) {
-            const data = JSON.parse(event.data);
-            document.getElementById("price").innerText = data.price;
-            document.getElementById("support").innerText = data.support;
-            document.getElementById("resistance").innerText = data.resistance;
-            document.getElementById("position").innerText = data.position;
-            document.getElementById("balance").innerText = data.balance;
-            document.getElementById("unimmr").innerText = data.unimmr;
+            const logs = document.getElementById('logs');
+            logs.innerHTML += `<p>${event.data}</p>`;
+            logs.scrollTop = logs.scrollHeight;
         };
 
-        async function toggleManual(value) {
-            await fetch("/manual", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ command: "toggle", value: value })
-            });
+        function startBot() {
+            ws.send(JSON.stringify({ action: 'start' }));
         }
 
-        async function manualCommand(command) {
-            await fetch("/manual", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ command: command })
-            });
+        function stopBot() {
+            ws.send(JSON.stringify({ action: 'stop' }));
         }
     </script>
 </body>
