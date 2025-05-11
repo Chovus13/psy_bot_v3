@@ -1,34 +1,34 @@
 import asyncio
 import ccxt.async_support as ccxt
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+api_key = os.getenv('API_KEY')
+api_secret = os.getenv('API_SECRET')
 
 async def check_markets():
     exchange = ccxt.binance({
-        'apiKey': os.getenv('API_KEY'),  # Ako koristiš LIVE, ubaci ključeve u .env
-        'secret': os.getenv('API_SECRET'),
+        'apiKey': api_key,
+        'secret': api_secret,
         'enableRateLimit': True,
-        'urls': {
-            'api': {
-                'fapi': 'https://fapi.binance.com'  # LIVE API
-                #'fapi': 'https://testnet.binancefuture.com'  # Testnet ako želiš
-            }
+        'options': {
+            'defaultType': 'future'
         }
     })
 
-    #exchange.set_sandbox_mode(True)  # Iskomentariši za LIVE
     try:
-        markets = await exchange.load_markets()
-        futures_markets = [
+        await exchange.load_markets()
+        markets = exchange.markets
+        perpetual_futures = [
             symbol for symbol, market in markets.items()
-            if market['active'] and market['type'] in ['linear', 'inverse'] and 'USDT' in symbol
+            if market['active'] and market['type'] == 'future'
         ]
-        print("Dostupni USDT futures simboli:", futures_markets)
+        print("Dostupni USD-M Perpetual Futures simboli:", perpetual_futures)
     except Exception as e:
         print(f"Greška: {str(e)}")
     finally:
         await exchange.close()
 
 if __name__ == "__main__":
-    import os
-    from dotenv import load_dotenv
-    load_dotenv()
     asyncio.run(check_markets())

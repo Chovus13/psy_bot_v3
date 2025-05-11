@@ -112,8 +112,8 @@ async def setup_futures(exchange, symbol, leverage=20):
     try:
         markets = await exchange.load_markets()
         market = markets[symbol]
-        if market['type'] not in ['linear', 'inverse']:
-            logger.error(f"Simbol {symbol} nije linearni ili inverzni kontrakt!")
+        if market['type'] not in ['future']:
+            logger.error(f"Simbol {symbol} nije futures kontrakt!")
             raise ValueError(f"Simbol {symbol} nije podržan za leverage.")
         await exchange.set_leverage(leverage, symbol)
         await exchange.set_margin_mode('isolated', symbol)
@@ -172,27 +172,38 @@ async def watch_orderbook(exchange, symbol):
                 signal['stop_loss'] = round(signal['entry_price'] - stop_loss, 5) if signal['type'] == 'LONG' else round(signal['entry_price'] + stop_loss, 5)
                 signal['take_profit'] = round(signal['entry_price'] + take_profit, 5) if signal['type'] == 'LONG' else round(signal['entry_price'] - take_profit, 5)
 
+                # Uzmi trade_amount i leverage iz data.json
+                try:
+                    with open('/app/data.json', 'r') as f:
+                        data = json.load(f)
+                    trade_amount = data.get('trade_amount', 0.01)
+                    leverage = data.get('leverage', 2)
+                except Exception as e:
+                    logger.error(f"Greška pri čitanju trade_amount/leverage iz data.json: {str(e)}")
+                    trade_amount = 0.01
+                    leverage = 2
+
                 if signal['type'] == 'LONG':
-                    order = await exchange.create_limit_buy_order(symbol, amount=0.01, price=signal['entry_price'])
+                    order = await exchange.create_limit_buy_order(symbol, amount=trade_amount, price=signal['entry_price'])
                     logger.info(f"Kreiran LONG nalog: {order}")
                     await exchange.create_order(
-                        symbol, 'stop_market', 'sell', 0.01, None,
+                        symbol, 'stop_market', 'sell', trade_amount, None,
                         {'stopPrice': signal['stop_loss'], 'closePosition': True}
                     )
                     await exchange.create_order(
-                        symbol, 'take_profit_market', 'sell', 0.01, None,
+                        symbol, 'take_profit_market', 'sell', trade_amount, None,
                         {'stopPrice': signal['take_profit'], 'closePosition': True}
                     )
                     asyncio.create_task(manage_trailing_stop(exchange, symbol, order, stop_loss, take_profit))
                 elif signal['type'] == 'SHORT':
-                    order = await exchange.create_limit_sell_order(symbol, amount=0.01, price=signal['entry_price'])
+                    order = await exchange.create_limit_sell_order(symbol, amount=trade_amount, price=signal['entry_price'])
                     logger.info(f"Kreiran SHORT nalog: {order}")
                     await exchange.create_order(
-                        symbol, 'stop_market', 'buy', 0.01, None,
+                        symbol, 'stop_market', 'buy', trade_amount, None,
                         {'stopPrice': signal['stop_loss'], 'closePosition': True}
                     )
                     await exchange.create_order(
-                        symbol, 'take_profit_market', 'buy', 0.01, None,
+                        symbol, 'take_profit_market', 'buy', trade_amount, None,
                         {'stopPrice': signal['take_profit'], 'closePosition': True}
                     )
                     asyncio.create_task(manage_trailing_stop(exchange, symbol, order, stop_loss, take_profit))
@@ -203,7 +214,7 @@ async def watch_orderbook(exchange, symbol):
                         data = json.load(f)
                     data['price'] = current_price
                     data['position'] = signal['type']
-                    data['unimmr'] = 0  # Ažuriraj ovo sa stvarnim PNL-om ako je dostupno
+                    data['unimmr'] = 0  # Ažuriraj sa stvarnim PNL-om ako je dostupno
                     with open('/app/data.json', 'w') as f:
                         json.dump(data, f)
                 except Exception as e:
@@ -229,8 +240,11 @@ async def trading_task():
         'enableRateLimit': True,
         'urls': {
             'api': {
-                'fapi': 'https://fapi.binance.com'  # LIVE API
+                'fapi': 'https://fapi.binance.com'  # LIVE Futures API
             }
+        },
+        'options': {
+            'defaultType': 'future'
         }
     })
 
@@ -238,11 +252,11 @@ async def trading_task():
         await exchange.load_markets()
         logger.info("Marketi uspešno učitani")
 
-        symbol = 'ETH/USDT'
+        symbol = 'ETHBTC'  # Perpetual Futures simbol
         with open('/app/data.json', 'r') as f:
             data = json.load(f)
-        leverage = data.get('leverage', 2)  # Uzmi leverage iz data.json
-        trade_amount = data.get('trade_amount', 0.01)  # Uzmi trade amount iz data.json
+        leverage = data.get('leverage', 2)
+        trade_amount = data.get('trade_amount', 0.01)
 
         # Dohvati balans i ažuriraj data.json
         usdt_balance = await fetch_balance(exchange)
