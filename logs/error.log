@@ -1,0 +1,16 @@
+2025/05/11 03:13:47 [emerg] 1#1: unknown directive "s" in /etc/nginx/nginx.conf:21
+2025/05/11 03:13:49 [emerg] 1#1: unknown directive "s" in /etc/nginx/nginx.conf:21
+2025/05/11 03:13:50 [emerg] 1#1: unknown directive "s" in /etc/nginx/nginx.conf:21
+2025/05/11 03:13:51 [emerg] 1#1: unknown directive "s" in /etc/nginx/nginx.conf:21
+2025/05/11 03:13:53 [emerg] 1#1: unknown directive "s" in /etc/nginx/nginx.conf:21
+2025/05/11 03:13:55 [emerg] 1#1: unknown directive "s" in /etc/nginx/nginx.conf:21
+2025/05/11 03:13:59 [emerg] 1#1: unknown directive "s" in /etc/nginx/nginx.conf:21
+2025/05/11 03:14:06 [emerg] 1#1: unknown directive "s" in /etc/nginx/nginx.conf:21
+2025/05/11 03:14:20 [emerg] 1#1: unknown directive "s" in /etc/nginx/nginx.conf:21
+2025/05/11 03:14:46 [emerg] 1#1: unknown directive "s" in /etc/nginx/nginx.conf:21
+2025/05/11 03:15:38 [emerg] 1#1: host not found in upstream "main" in /etc/nginx/nginx.conf:38
+2025/05/11 03:40:46 [emerg] 1#1: host not found in upstream "main" in /etc/nginx/nginx.conf:41
+2025/05/11 03:40:47 [warn] 1#1: conflicting server name "localhost" on 0.0.0.0:80, ignored
+2025/05/11 03:54:28 [emerg] 1#1: host not found in upstream "main" in /etc/nginx/nginx.conf:38
+2025/05/11 15:07:48 [warn] 1#1: conflicting server name "localhost" on 0.0.0.0:80, ignored
+2025/05/11 15:15:41 [warn] 1#1: conflicting server name "localhost" on 0.0.0.0:80, ignored
