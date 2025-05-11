@@ -1,4 +1,3 @@
-# api.py (dodato rukovanje za rokada komande)
 import json
 import logging
 from fastapi import FastAPI, WebSocket
@@ -45,6 +44,48 @@ async def manual_control(command: dict):
     
     return {"status": "success", "command": cmd, "value": value}
 
+@app.post("/update_data")
+async def update_data(updates: dict):
+    logging.info(f"Ažuriranje data.json: {updates}")
+    try:
+        with open("/app/data.json", "r") as f:
+            data = json.load(f)
+    except Exception as e:
+        logging.error(f"Greška pri čitanju data.json: {e}")
+        data = {}
+
+    data.update(updates)
+    try:
+        with open("/app/data.json", "w") as f:
+            json.dump(data, f)
+    except Exception as e:
+        logging.error(f"Greška pri pisanju u data.json: {e}")
+    
+    return {"status": "success", "updates": updates}
+
+@app.get("/get_data")
+async def get_data():
+    try:
+        with open("/app/data.json", "r") as f:
+            data = json.load(f)
+    except Exception as e:
+        logging.error(f"Greška pri čitanju data.json: {e}")
+        data = {
+            'price': 0,
+            'support': 0,
+            'resistance': 0,
+            'position': 'None',
+            'balance': 0,
+            'unimmr': 0,
+            'logs': [],
+            'manual': 'off',
+            'rokada': 'off',
+            'trade_amount': 0.06,
+            'leverage': 2,
+            'rsi': 'off'
+        }
+    return data
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
@@ -67,17 +108,18 @@ async def websocket_endpoint(websocket: WebSocket):
                     'unimmr': 0,
                     'logs': [],
                     'manual': 'off',
-                    'rokada': 'off'  # Dodato podrazumevano
+                    'rokada': 'off',
+                    'trade_amount': 0.06,
+                    'leverage': 2,
+                    'rsi': 'off'
                 }
             
             data.update({
-                'isLive': False,
+                'isLive': True,
                 'takeFromHere': False,
                 'tradeAtNight': False,
-                'leverage': 3,
                 'advancedMode': False,
-                'tradeAmount': 0.06,
-                'isRunning': True
+                'isRunning': trading_task_running
             })
             
             try:
