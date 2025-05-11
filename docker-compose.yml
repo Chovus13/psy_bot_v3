@@ -1,35 +1,43 @@
-# docker-compose.yml
 services:
   main:
-    build: .
-    command: python main.py
-    volumes:
-      - ./logs:/app/logs
-      - ./data.json:/app/data.json
-    env_file:
-      - .env
+    build:
+      context: .
+      dockerfile: Dockerfile.main
+    environment:
+      - GROK_API_KEY=${GROK_API_KEY}
+    secrets:
+      - grok_api_key
+    networks:
+      - default
     restart: unless-stopped
-    
+
   api:
-    build: .
-    command: uvicorn api:app --host 0.0.0.0 --port 8000
-    volumes:
-      - ./logs:/app/logs
-      - ./data.json:/app/data.json
-    expose:
-      - "8000"
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "8000:8000"
+    networks:
+      - default
+    restart: unless-stopped
+
   nginx:
     image: nginx:latest
     ports:
       - "80:80"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./html:/usr/share/nginx/html:ro
-      - ./logs:/app/logs:ro
     depends_on:
       - main
       - api
     networks:
       - default
+    restart: unless-stopped
 
+secrets:
+  grok_api_key:
+    file: ./.env
+
+networks:
+  default:
+    driver: bridge
