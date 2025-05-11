@@ -1,0 +1,99 @@
+Provri kod, negde mozda ima tri razmaka umesto cetiri, znaci strykturu koda.Negde sam zeznuo stvar sa ocitavanjem "symbol" i replace /USDT! Ima za Leverage, ali sam negde greskom obrisao. Proveri False, true da li je dobro  napisano u kodu, velika ili mala pocetna slova, kao i za PERPETUAL i symbol i fapi.
+
+
+1. problem sa Web socket i backup REST APi konekcijom, WebSocket konekcija se na kraju uspostavlja (connection open), ali nakon što trading task već pao
+Resenje 
+pogrešan simbol (ETH/BTC:USDT) - treba ETH/BTC za BTC-M futures ili ETH/BTC za USDT-M futures, tamo se nalazi na BNinace sajtu u toj sekciji
+
+Fali nam proper error handling za WebSocket disconnection
+
+PREDLOG:
+async def watch_orderbook(exchange, symbol):
+    """Praćenje orderbook-a preko WebSocket-a sa REST fallback-om."""
+    while True:
+        try:
+            orderbook = await exchange.watch_order_book(symbol, limit=100)
+            logger.info(f"WebSocket: Orderbook za {symbol} uspešno povučen")
+            # ... ostatak logike ...
+            
+        except ccxt.NetworkError as e:
+            logger.error(f"Network greška: {str(e)}, pokušavam REST fallback")
+            orderbook = await fetch_orderbook_rest(exchange, symbol)
+            if orderbook:
+                # ... obradi orderbook ...
+            await asyncio.sleep(5)  # Pauza pre ponovnog pokušaja
+            
+        except Exception as e:
+            logger.error(f"Kritična greška: {str(e)}")
+            await asyncio.sleep(10)  # Duža pauza za ozbiljne greške
+
+2. Problem sa startom, a stoji na kraju koda:@app.on_event("startup") deprecation 181 linija
+/app/main.py:181: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).    
+
+  @app.on_event("startup")
+
+Preporuka za popravljanje, 
+
+
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup logika
+    logger.info("Pokrećem trading task u pozadini")
+    asyncio.create_task(trading_task())
+    yield
+    # Shutdown logika
+    logger.info("Zaustavljam aplikaciju")
+
+app = FastAPI(lifespan=lifespan)
+
+3 problem sa  health check za WebSocket:
+   Resavamo tako sto daajemo 
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        while True:
+            # Provera da li je trading task aktivan
+            if not trading_task_is_running():  # Implementirajte ovu funkciju
+                await websocket.send_json({"error": "Trading task nije aktivan"})
+            
+            await asyncio.sleep(5)
+    except WebSocketDisconnect:
+        logger.info("Klijent diskonektovan")
+
+4. Poboljšajte error handling u trading tasku:
+
+Resavamo  sa:
+async def trading_task():
+    while True:  # Dodajte beskonačnu petlju za automatski restart
+        try:
+            exchange = ccxt.binance({
+                'apiKey': api_key,
+                'secret': api_secret,
+                'enableRateLimit': True,
+                'options': {'defaultType': 'future'}
+            })
+            exchange.set_sandbox_mode(False)
+            
+            await exchange.load_markets()
+            symbol = 'ETH/USDT'
+            await setup_futures(exchange, symbol)
+            
+            await watch_orderbook(exchange, symbol)
+            
+        except Exception as e:
+            logger.error(f"Trading task pao: {str(e)}")
+            await asyncio.sleep(60)  # Pauza pre ponovnog pokušaja
+        finally:
+            if 'exchange' in locals():
+                await exchange.close()
+
+
+Dodaj i kod kriticnih operacija, try/excepr
+ ping/pong mehanizam za WebSocket
+Da li da idemo na ccxt.pro (razmisli i odluci kako je bolje)
