@@ -1,11 +1,21 @@
-WALL_RANGE_SPREAD = 0.00028  # Maksimalni raspon za zidove
-PRICE_PRECISION = 5  # Cene na 5 decimala
-VOLUME_PRECISION = 2  # Volumen na 2 decimale
-MIN_WALL_VOLUME = 50.0  # Minimalni volumen za zid (ETH)
-HILL_WALL_VOLUME = 150.0  # "Brdašce"
-MOUNTAIN_WALL_VOLUME = 250.0  # "Brdo"
-EPIC_WALL_VOLUME = 500.0  # "Planina"
-TARGET_DIGITS = [2, 3, 7, 8]  # Prioritet za 5. decimalu
-SPECIAL_DIGITS = [1, 9]  # Za obrnute poteze (rokada)
-PROFIT_TARGET = 0.00004  # Cilj: 4 pipsa
-LEVERAGE = 5  # Leverage x20
+# config.py
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Postavke za zidove (može se čitati iz .env)
+WALL_RANGE_SPREAD = float(os.getenv('WALL_RANGE_SPREAD', 0.0005))
+MIN_WALL_VOLUME = float(os.getenv('MIN_WALL_VOLUME', 10.0))
+HILL_WALL_VOLUME = float(os.getenv('HILL_WALL_VOLUME', 50.0))
+MOUNTAIN_WALL_VOLUME = float(os.getenv('MOUNTAIN_WALL_VOLUME', 100.0))
+EPIC_WALL_VOLUME = float(os.getenv('EPIC_WALL_VOLUME', 500.0))
+
+# Preciznost
+PRICE_PRECISION = int(os.getenv('PRICE_PRECISION', 5))
+VOLUME_PRECISION = int(os.getenv('VOLUME_PRECISION', 2))
+
+# Strategija
+TARGET_DIGITS = [int(d) for d in os.getenv('TARGET_DIGITS', '2,3,7,8').split(',')]
+SPECIAL_DIGITS = [int(d) for d in os.getenv('SPECIAL_DIGITS', '1,9').split(',')]
+PROFIT_TARGET = float(os.getenv('PROFIT_TARGET', 0.00010))  # 2:1 u odnosu na stop-loss
