@@ -68,6 +68,8 @@ async def get_data():
     try:
         with open("/app/data.json", "r") as f:
             data = json.load(f)
+        logging.info(f"Vraćam podatke iz data.json: {data}")
+        return data
     except Exception as e:
         logging.error(f"Greška pri čitanju data.json: {e}")
         data = {
@@ -80,11 +82,11 @@ async def get_data():
             'logs': [],
             'manual': 'off',
             'rokada': 'off',
-            'trade_amount': 0.06,
+            'trade_amount': 0.01,
             'leverage': 2,
             'rsi': 'off'
         }
-    return data
+        return data
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -109,7 +111,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     'logs': [],
                     'manual': 'off',
                     'rokada': 'off',
-                    'trade_amount': 0.06,
+                    'trade_amount': 0.01,
                     'leverage': 2,
                     'rsi': 'off'
                 }
