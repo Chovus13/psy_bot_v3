@@ -14,3 +14,13 @@
 2025/05/11 03:54:28 [emerg] 1#1: host not found in upstream "main" in /etc/nginx/nginx.conf:38
 2025/05/11 15:07:48 [warn] 1#1: conflicting server name "localhost" on 0.0.0.0:80, ignored
 2025/05/11 15:15:41 [warn] 1#1: conflicting server name "localhost" on 0.0.0.0:80, ignored
+2025/05/11 18:16:16 [error] 21#21: *1 connect() failed (111: Connection refused) while connecting to upstream, client: 192.168.68.100, server: localhost, request: "GET /ws HTTP/1.1", upstream: "http://192.168.96.2:8000/ws", host: "192.168.68.30"
+2025/05/11 18:16:16 [error] 21#21: *1 open() "/usr/share/nginx/html/50x.html" failed (2: No such file or directory), client: 192.168.68.100, server: localhost, request: "GET /ws HTTP/1.1", upstream: "http://192.168.96.2:8000/ws", host: "192.168.68.30"
+2025/05/11 18:18:07 [error] 23#23: *1 connect() failed (111: Connection refused) while connecting to upstream, client: 192.168.68.100, server: localhost, request: "GET /ws HTTP/1.1", upstream: "http://192.168.96.3:8000/ws", host: "192.168.68.30"
+2025/05/11 18:18:07 [error] 23#23: *1 open() "/usr/share/nginx/html/50x.html" failed (2: No such file or directory), client: 192.168.68.100, server: localhost, request: "GET /ws HTTP/1.1", upstream: "http://192.168.96.3:8000/ws", host: "192.168.68.30"
+2025/05/11 18:44:27 [error] 20#20: *1 connect() failed (111: Connection refused) while connecting to upstream, client: 192.168.68.100, server: localhost, request: "GET /ws HTTP/1.1", upstream: "http://192.168.96.2:8000/ws", host: "192.168.68.30"
+2025/05/11 18:44:27 [error] 20#20: *1 open() "/usr/share/nginx/html/50x.html" failed (2: No such file or directory), client: 192.168.68.100, server: localhost, request: "GET /ws HTTP/1.1", upstream: "http://192.168.96.2:8000/ws", host: "192.168.68.30"
+2025/05/11 18:44:27 [error] 23#23: *4 connect() failed (111: Connection refused) while connecting to upstream, client: 192.168.68.100, server: localhost, request: "GET /ws HTTP/1.1", upstream: "http://192.168.96.2:8000/ws", host: "192.168.68.30"
+2025/05/11 18:44:27 [error] 23#23: *4 open() "/usr/share/nginx/html/50x.html" failed (2: No such file or directory), client: 192.168.68.100, server: localhost, request: "GET /ws HTTP/1.1", upstream: "http://192.168.96.2:8000/ws", host: "192.168.68.30"
+2025/05/11 18:44:30 [error] 22#22: *7 connect() failed (111: Connection refused) while connecting to upstream, client: 192.168.68.100, server: localhost, request: "GET /ws HTTP/1.1", upstream: "http://192.168.96.2:8000/ws", host: "192.168.68.30"
+2025/05/11 18:44:30 [error] 22#22: *7 open() "/usr/share/nginx/html/50x.html" failed (2: No such file or directory), client: 192.168.68.100, server: localhost, request: "GET /ws HTTP/1.1", upstream: "http://192.168.96.2:8000/ws", host: "192.168.68.30"

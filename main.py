@@ -3,6 +3,7 @@ import ccxt.async_support as ccxt
 import os
 from dotenv import load_dotenv
 import logging
+import json
 from fastapi import FastAPI, WebSocket
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -97,6 +98,16 @@ async def websocket_endpoint(websocket: WebSocket):
     finally:
         await websocket.close()
 
+async def fetch_balance(exchange):
+    try:
+        balance = await exchange.fetch_balance()
+        usdt_balance = balance['USDT']['free'] if 'USDT' in balance else 0
+        logger.info(f"USDT balans: {usdt_balance}")
+        return usdt_balance
+    except Exception as e:
+        logger.error(f"Greška pri dohvatanju balansa: {str(e)}")
+        return 0
+
 async def setup_futures(exchange, symbol, leverage=20):
     try:
         markets = await exchange.load_markets()
@@ -185,6 +196,19 @@ async def watch_orderbook(exchange, symbol):
                         {'stopPrice': signal['take_profit'], 'closePosition': True}
                     )
                     asyncio.create_task(manage_trailing_stop(exchange, symbol, order, stop_loss, take_profit))
+
+                # Ažuriraj data.json sa novim podacima
+                try:
+                    with open('/app/data.json', 'r') as f:
+                        data = json.load(f)
+                    data['price'] = current_price
+                    data['position'] = signal['type']
+                    data['unimmr'] = 0  # Ažuriraj ovo sa stvarnim PNL-om ako je dostupno
+                    with open('/app/data.json', 'w') as f:
+                        json.dump(data, f)
+                except Exception as e:
+                    logger.error(f"Greška pri ažuriranju data.json: {str(e)}")
+
         except Exception as e:
             logger.error(f"Greška u WebSocket-u za {symbol}: {str(e)}, prelazim na REST")
             orderbook = await fetch_orderbook_rest(exchange, symbol)
@@ -205,19 +229,28 @@ async def trading_task():
         'enableRateLimit': True,
         'urls': {
             'api': {
-                'fapi': 'https://testnet.binancefuture.com',  # Eksplicitno testnet
+                'fapi': 'https://fapi.binance.com'  # LIVE API
             }
         }
     })
-
-    exchange.set_sandbox_mode(True)
 
     try:
         await exchange.load_markets()
         logger.info("Marketi uspešno učitani")
 
-        symbol = 'BTC/USDT'
-        await setup_futures(exchange, symbol, leverage=20)
+        symbol = 'ETH/USDT'
+        with open('/app/data.json', 'r') as f:
+            data = json.load(f)
+        leverage = data.get('leverage', 2)  # Uzmi leverage iz data.json
+        trade_amount = data.get('trade_amount', 0.01)  # Uzmi trade amount iz data.json
+
+        # Dohvati balans i ažuriraj data.json
+        usdt_balance = await fetch_balance(exchange)
+        data['balance'] = usdt_balance
+        with open('/app/data.json', 'w') as f:
+            json.dump(data, f)
+
+        await setup_futures(exchange, symbol, leverage=leverage)
 
         await watch_orderbook(exchange, symbol)
 
