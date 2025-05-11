@@ -10,42 +10,46 @@ from orderbook import filter_walls, detect_trend
 from levels import generate_signals, classify_wall_volume
 from contextlib import asynccontextmanager
 
-app = FastAPI()
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Kod koji se izvršava na startup-u
-    print("Starting up...")
-    yield
-    # Kod koji se izvršava na shutdown-u
-    print("Shutting down...")
-
-app.router.lifespan_context = lifespan
-
 # --- KONFIGURACIJA LOGOVANJA ---
 logging.basicConfig(
     level=logging.INFO,
-    filename='bot.log',
+    filename='/app/logs/bot.log',
     format='%(asctime)s - %(levelname)s - %(message)s',
     filemode='a'
 )
 logger = logging.getLogger(__name__)
 
-# Konzolni izlaz za live praćenje
 console_handler = logging.StreamHandler()
 console_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
 logger.addHandler(console_handler)
-
 
 # Učitavanje API ključeva
 load_dotenv()
 api_key = os.getenv('API_KEY')
 api_secret = os.getenv('API_SECRET')
+if not api_key or not api_secret:
+    logger.error("API_KEY ili API_SECRET nisu postavljeni u .env fajlu!")
+    raise ValueError("API_KEY ili API_SECRET nisu postavljeni!")
 
 # FastAPI aplikacija
 app = FastAPI()
 
-# Montaža static foldera za html/index.html
+# Globalne promenljive za trading task
+trading_task_running = False
+trading_task_instance = None
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Pokrećem Psy Bot v3...")
+    yield
+    logger.info("Gasim Psy Bot v3...")
+    if trading_task_instance:
+        trading_task_instance.cancel()
+        await asyncio.sleep(0)
+
+app.router.lifespan_context = lifespan
+
+# Montaža static foldera
 app.mount("/static", StaticFiles(directory="html"), name="static")
 
 # Ruta za index.html
@@ -54,47 +58,38 @@ async def serve_index():
     with open("html/index.html", "r") as f:
         return f.read()
 
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "trading_active": trading_task_running}
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    global trading_task_running
+    global trading_task_running, trading_task_instance
     await websocket.accept()
     try:
         while True:
             data = await websocket.receive_json()
             if data.get('action') == 'start' and not trading_task_running:
+                logger.info("Pokrećem trading task preko WebSocket-a...")
                 trading_task_running = True
-                asyncio.create_task(trading_task())
-            elif data.get('action') == 'stop':
+                trading_task_instance = asyncio.create_task(trading_task())
+            elif data.get('action') == 'stop' and trading_task_running:
+                logger.info("Zaustavljam trading task...")
                 trading_task_running = False
-                # Logika za zaustavljanje (npr. otkazivanje taskova)
-            with open("bot.log", "r") as f:
+                if trading_task_instance:
+                    trading_task_instance.cancel()
+                    trading_task_instance = None
+            with open("/app/logs/bot.log", "r") as f:
                 logs = f.readlines()
                 for log in logs[-10:]:
                     await websocket.send_text(log.strip())
             await asyncio.sleep(5)
     except Exception as e:
-        logger.error(f"Greška u WebSocket-u za frontend: {str(e)}")
+        logger.error(f"Greška u WebSocket-u: {str(e)}")
     finally:
         await websocket.close()
-# WebSocket za komunikaciju sa frontend-om
-#@app.websocket("/ws")
-#async def websocket_endpoint(websocket: WebSocket):
-#    await websocket.accept()
-#    try:
-#        while True:
-#            # Slanje logova ili signala klijentu
-#            with open("bot.log", "r") as f:
-#                logs = f.readlines()
-#                for log in logs[-10:]:  # Slanje poslednjih 10 logova
-#                    await websocket.send_text(log.strip())
-#            await asyncio.sleep(5)  # Slanje svakih 5 sekundi
-#    except Exception as e:
-#        logger.error(f"Greška u WebSocket-u za frontend: {str(e)}")
-#    finally:
-#        await websocket.close()
 
 async def setup_futures(exchange, symbol, leverage=20):
-    """Postavlja leverage i izolovani margin za dati simbol."""
     try:
         await exchange.set_leverage(leverage, symbol)
         await exchange.set_margin_mode('isolated', symbol)
@@ -104,7 +99,6 @@ async def setup_futures(exchange, symbol, leverage=20):
         raise
 
 async def fetch_orderbook_rest(exchange, symbol):
-    """REST API fallback za orderbook."""
     try:
         orderbook = await exchange.fetch_order_book(symbol, limit=100)
         logger.info(f"REST API: Orderbook za {symbol} uspešno povučen")
@@ -114,7 +108,6 @@ async def fetch_orderbook_rest(exchange, symbol):
         return None
 
 async def manage_trailing_stop(exchange, symbol, order, stop_loss, take_profit):
-    """Upravlja trailing stop-loss-om (2:1 odnos)."""
     try:
         position = await exchange.fetch_position(symbol)
         current_price = position['markPrice']
@@ -122,7 +115,6 @@ async def manage_trailing_stop(exchange, symbol, order, stop_loss, take_profit):
         if order['side'] == 'buy':  # LONG
             new_stop = current_price - stop_loss
             if new_stop > entry_price:
-                new_stop = current_price - stop_loss
                 logger.info(f"Trailing stop za {symbol} pomeren na {new_stop}")
                 await exchange.create_order(
                     symbol, 'stop_market', 'sell', order['amount'], None,
@@ -131,7 +123,6 @@ async def manage_trailing_stop(exchange, symbol, order, stop_loss, take_profit):
         else:  # SHORT
             new_stop = current_price + stop_loss
             if new_stop < entry_price:
-                new_stop = current_price + stop_loss
                 logger.info(f"Trailing stop za {symbol} pomeren na {new_stop}")
                 await exchange.create_order(
                     symbol, 'stop_market', 'buy', order['amount'], None,
@@ -141,8 +132,7 @@ async def manage_trailing_stop(exchange, symbol, order, stop_loss, take_profit):
         logger.error(f"Greška u trailing stop-loss-u za {symbol}: {str(e)}")
 
 async def watch_orderbook(exchange, symbol):
-    """Praćenje orderbook-a preko WebSocket-a sa REST fallback-om."""
-    while True:
+    while trading_task_running:
         try:
             orderbook = await exchange.watch_order_book(symbol, limit=100)
             logger.info(f"WebSocket: Orderbook za {symbol} uspešno povučen")
@@ -153,8 +143,8 @@ async def watch_orderbook(exchange, symbol):
             
             for signal in signals:
                 logger.info(f"Signal za {symbol}: {signal}")
-                stop_loss = 0.00005  # 5 pipova (5. decimala)
-                take_profit = stop_loss * 2  # 2:1 odnos
+                stop_loss = 0.00005
+                take_profit = stop_loss * 2
                 signal['stop_loss'] = round(signal['entry_price'] - stop_loss, 5) if signal['type'] == 'LONG' else round(signal['entry_price'] + stop_loss, 5)
                 signal['take_profit'] = round(signal['entry_price'] + take_profit, 5) if signal['type'] == 'LONG' else round(signal['entry_price'] - take_profit, 5)
 
@@ -192,35 +182,38 @@ async def watch_orderbook(exchange, symbol):
                 signals = generate_signals(current_price, walls, trend, rokada_status="on")
                 for signal in signals:
                     logger.info(f"REST Signal za {symbol}: {signal}")
+        await asyncio.sleep(1)
 
 async def trading_task():
-    """Zasebna petlja za trading logiku."""
+    global trading_task_running
     exchange = ccxt.binance({
         'apiKey': api_key,
         'secret': api_secret,
         'enableRateLimit': True,
         'urls': {
             'api': {
-                'fapi': 'https://fapi.binance.com',  # Futures endpoint
+                'fapi': 'https://fapi.binance.com',
             }
         }
     })
 
-    # Testnet mod (za testiranje)
-    exchange.set_sandbox_mode(False)
+    exchange.set_sandbox_mode(True)  # Promeni na False za produkciju
 
     try:
         await exchange.load_markets()
         logger.info("Marketi uspešno učitani")
 
-        symbol = 'ETH/BTC'
+        symbol = 'BTC/USDT'  # Promenjeno na BTC/USDT jer je češće dostupan na testnet-u
         await setup_futures(exchange, symbol, leverage=20)
 
         await watch_orderbook(exchange, symbol)
 
     except Exception as e:
         logger.error(f"Greška u trading petlji: {str(e)}")
+        trading_task_running = False
     finally:
         await exchange.close()
 
-# Pokretanje trading petlje u pozadini
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
