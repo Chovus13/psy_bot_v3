@@ -8,10 +8,36 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from orderbook import filter_walls, detect_trend
 from levels import generate_signals, classify_wall_volume
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup logika
+    logger.info("Pokrećem trading task u pozadini")
+    asyncio.create_task(trading_task())
+    yield
+    # Shutdown logika
+    logger.info("Zaustavljam aplikaciju")
+
+app = FastAPI(lifespan=lifespan)
 
 # Konfiguracija logging-a
-logging.basicConfig(level=logging.INFO, filename='bot.log', format='%(asctime)s - %(levelname)s - %(message)s')
+from levels import generate_signals, classify_wall_volume
+
+# --- KONFIGURACIJA LOGOVANJA ---
+logging.basicConfig(
+    level=logging.INFO,
+    filename='bot.log',
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    filemode='a'
+)
 logger = logging.getLogger(__name__)
+
+# Konzolni izlaz za live praćenje
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+logger.addHandler(console_handler)
+
 
 # Učitavanje API ključeva
 load_dotenv()
@@ -30,22 +56,44 @@ async def serve_index():
     with open("html/index.html", "r") as f:
         return f.read()
 
-# WebSocket za komunikaciju sa frontend-om
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
+    global trading_task_running
     await websocket.accept()
     try:
         while True:
-            # Slanje logova ili signala klijentu
+            data = await websocket.receive_json()
+            if data.get('action') == 'start' and not trading_task_running:
+                trading_task_running = True
+                asyncio.create_task(trading_task())
+            elif data.get('action') == 'stop':
+                trading_task_running = False
+                # Logika za zaustavljanje (npr. otkazivanje taskova)
             with open("bot.log", "r") as f:
                 logs = f.readlines()
-                for log in logs[-10:]:  # Slanje poslednjih 10 logova
+                for log in logs[-10:]:
                     await websocket.send_text(log.strip())
-            await asyncio.sleep(5)  # Slanje svakih 5 sekundi
+            await asyncio.sleep(5)
     except Exception as e:
         logger.error(f"Greška u WebSocket-u za frontend: {str(e)}")
     finally:
         await websocket.close()
+# WebSocket za komunikaciju sa frontend-om
+#@app.websocket("/ws")
+#async def websocket_endpoint(websocket: WebSocket):
+#    await websocket.accept()
+#    try:
+#        while True:
+#            # Slanje logova ili signala klijentu
+#            with open("bot.log", "r") as f:
+#                logs = f.readlines()
+#                for log in logs[-10:]:  # Slanje poslednjih 10 logova
+#                    await websocket.send_text(log.strip())
+#            await asyncio.sleep(5)  # Slanje svakih 5 sekundi
+#    except Exception as e:
+#        logger.error(f"Greška u WebSocket-u za frontend: {str(e)}")
+#    finally:
+#        await websocket.close()
 
 async def setup_futures(exchange, symbol, leverage=20):
     """Postavlja leverage i izolovani margin za dati simbol."""
@@ -161,13 +209,13 @@ async def trading_task():
     })
 
     # Testnet mod (za testiranje)
-    exchange.set_sandbox_mode(True)
+    exchange.set_sandbox_mode(False)
 
     try:
         await exchange.load_markets()
         logger.info("Marketi uspešno učitani")
 
-        symbol = 'ETH/BTC:USDT'
+        symbol = 'ETH/BTC'
         await setup_futures(exchange, symbol, leverage=20)
 
         await watch_orderbook(exchange, symbol)
