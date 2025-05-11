@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ETH/BTC Trading Bot</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #1a1a1a; color: #fff; text-align: center; padding: 20px; }
+        h1 { color: #00ff00; }
+        #logs { background: #333; padding: 20px; margin-top: 20px; height: 400px; overflow-y: scroll; text-align: left; }
+        button { padding: 10px 20px; margin: 10px; background: #00ff00; border: none; cursor: pointer; }
+        button:hover { background: #00cc00; }
+    </style>
+</head>
+<body>
+    <h1>ETH/BTC Trading Bot</h1>
+    <div>
+        <button onclick="startBot()">Start Bot</button>
+        <button onclick="stopBot()">Stop Bot</button>
+    </div>
+    <div id="logs"></div>
+    <script>
+        const ws = new WebSocket('ws://' + window.location.host + '/ws');
+        ws.onmessage = function(event) {
+            const logs = document.getElementById('logs');
+            logs.innerHTML += `<p>${event.data}</p>`;
+            logs.scrollTop = logs.scrollHeight;
+        };
+
+        function startBot() {
+            ws.send(JSON.stringify({ action: 'start' }));
+        }
+
+        function stopBot() {
+            ws.send(JSON.stringify({ action: 'stop' }));
+        }
+    </script>
+</body>
+</html>
