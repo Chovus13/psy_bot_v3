@@ -10,19 +10,17 @@ from orderbook import filter_walls, detect_trend
 from levels import generate_signals, classify_wall_volume
 from contextlib import asynccontextmanager
 
+app = FastAPI()
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup logika
-    logger.info("Pokrećem trading task u pozadini")
-    asyncio.create_task(trading_task())
+    # Kod koji se izvršava na startup-u
+    print("Starting up...")
     yield
-    # Shutdown logika
-    logger.info("Zaustavljam aplikaciju")
+    # Kod koji se izvršava na shutdown-u
+    print("Shutting down...")
 
-app = FastAPI(lifespan=lifespan)
-
-# Konfiguracija logging-a
-from levels import generate_signals, classify_wall_volume
+app.router.lifespan_context = lifespan
 
 # --- KONFIGURACIJA LOGOVANJA ---
 logging.basicConfig(
@@ -226,6 +224,3 @@ async def trading_task():
         await exchange.close()
 
 # Pokretanje trading petlje u pozadini
-@app.on_event("startup")
-async def startup_event():
-    asyncio.create_task(trading_task())
