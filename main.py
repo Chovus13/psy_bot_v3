@@ -11,9 +11,13 @@ from levels import generate_signals, classify_wall_volume
 from contextlib import asynccontextmanager
 
 # --- KONFIGURACIJA LOGOVANJA ---
+log_dir = '/app/logs'
+if not os.path.exists(log_dir):
+    os.makedirs(log_dir)
+
 logging.basicConfig(
     level=logging.INFO,
-    filename='/app/logs/bot.log',
+    filename=os.path.join(log_dir, 'bot.log'),
     format='%(asctime)s - %(levelname)s - %(message)s',
     filemode='a'
 )
@@ -79,10 +83,14 @@ async def websocket_endpoint(websocket: WebSocket):
                 if trading_task_instance:
                     trading_task_instance.cancel()
                     trading_task_instance = None
-            with open("/app/logs/bot.log", "r") as f:
-                logs = f.readlines()
-                for log in logs[-10:]:
-                    await websocket.send_text(log.strip())
+            log_file = os.path.join(log_dir, 'bot.log')
+            if os.path.exists(log_file):
+                with open(log_file, "r") as f:
+                    logs = f.readlines()
+                    for log in logs[-10:]:
+                        await websocket.send_text(log.strip())
+            else:
+                await websocket.send_text("Log fajl još nije kreiran.")
             await asyncio.sleep(5)
     except Exception as e:
         logger.error(f"Greška u WebSocket-u: {str(e)}")
@@ -91,6 +99,11 @@ async def websocket_endpoint(websocket: WebSocket):
 
 async def setup_futures(exchange, symbol, leverage=20):
     try:
+        markets = await exchange.load_markets()
+        market = markets[symbol]
+        if market['type'] not in ['linear', 'inverse']:
+            logger.error(f"Simbol {symbol} nije linearni ili inverzni kontrakt!")
+            raise ValueError(f"Simbol {symbol} nije podržan za leverage.")
         await exchange.set_leverage(leverage, symbol)
         await exchange.set_margin_mode('isolated', symbol)
         logger.info(f"Uspešno postavljen leverage {leverage}x i izolovani margin za {symbol}")
@@ -192,18 +205,18 @@ async def trading_task():
         'enableRateLimit': True,
         'urls': {
             'api': {
-                'fapi': 'https://fapi.binance.com',
+                'fapi': 'https://testnet.binancefuture.com',  # Eksplicitno testnet
             }
         }
     })
 
-    exchange.set_sandbox_mode(True)  # Promeni na False za produkciju
+    exchange.set_sandbox_mode(True)
 
     try:
         await exchange.load_markets()
         logger.info("Marketi uspešno učitani")
 
-        symbol = 'BTC/USDT'  # Promenjeno na BTC/USDT jer je češće dostupan na testnet-u
+        symbol = 'BTC/USDT'
         await setup_futures(exchange, symbol, leverage=20)
 
         await watch_orderbook(exchange, symbol)
