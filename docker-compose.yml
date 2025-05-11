@@ -8,6 +8,8 @@ services:
       - ./data.json:/app/data.json
     env_file:
       - .env
+    restart: unless-stopped
+    
   api:
     build: .
     command: uvicorn api:app --host 0.0.0.0 --port 8000
@@ -26,3 +28,4 @@ services:
       - ./logs:/app/logs:ro
     depends_on:
       - api
+    restart: unless-stopped
