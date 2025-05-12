@@ -167,7 +167,7 @@ async def trading_task():
         await exchange.load_markets()
         logger.info("Marketi uspešno učitani")
 
-        symbol = 'ETH/BTC:USDT'
+        symbol = 'ETHBTC'
         await setup_futures(exchange, symbol, leverage=20)
 
         await watch_orderbook(exchange, symbol)

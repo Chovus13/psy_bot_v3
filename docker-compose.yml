@@ -6,9 +6,13 @@ services:
       - .env
     volumes:
       - .:/app
+      - ./logs:/app/logs
+      - ./data.json:/app/data.json
+      - ./html:/app/html:ro
+
     working_dir: /app
     ports:
-      - "80:80"
+      - "8888:80"
       - "8000:8000"
     networks:
       - bot-network
