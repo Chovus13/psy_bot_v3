@@ -1,17 +1,26 @@
 import json
 import logging
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, WebSocket
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 
 app = FastAPI()
 logging.basicConfig(level=logging.INFO)
+# Dodaj CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-
-@app.get("/")
-async def serve_html():
-    logging.info("GET / zahtev primljen, vraćam HTML")
-    return FileResponse("/usr/share/nginx/html/index.html")
+#@app.get("/")
+#async def serve_html():
+#    logging.info("GET / zahtev primljen, vraćam HTML")
+#    return FileResponse("/usr/share/nginx/html/index.html")
 
 
 @app.get("/logs/orderbook.png")
