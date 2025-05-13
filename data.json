@@ -1,1 +1,15 @@
-{"price": 0, "support": 0, "resistance": 0, "position": "None", "balance": 65.0, "unimmr": 0, "logs": [], "manual": "on", "rokada": "off", "trade_amount": 0.01, "leverage": 1, "rsi": "off", "manual_command": "close_position"}
+{
+  "price": 0,
+  "support": 0,
+  "resistance": 0,
+  "position": "None",
+  "balance": 65.0,
+  "unimmr": 0,
+  "logs": [],
+  "manual": "on",
+  "rokada": "off",
+  "trade_amount": 0.52,
+  "leverage": 7,
+  "rsi": "on",
+  "manual_command": "disable_tp_sl"
+}

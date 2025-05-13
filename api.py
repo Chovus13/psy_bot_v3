@@ -1,14 +1,21 @@
 import json
 import logging
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, WebSocket
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 
+# Konfiguracija logovanja
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+logger.addHandler(handler)
+
+# FastAPI aplikacija
 app = FastAPI()
-logging.basicConfig(level=logging.INFO)
-# Dodaj CORS middleware
+
+# CORS middleware za frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,28 +24,35 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-#@app.get("/")
-#async def serve_html():
-#    logging.info("GET / zahtev primljen, vraćam HTML")
-#    return FileResponse("/usr/share/nginx/html/index.html")
-
+# Globalna promenljiva iz main.py
+trading_task_running = False
 
 @app.get("/logs/orderbook.png")
-async def serve_orderbook_image(t: str):
-    return FileResponse("/app/logs/orderbook.png")
-
+async def serve_orderbook_image(t: str = None):
+    """Vraća orderbook.png iz logs foldera."""
+    try:
+        return FileResponse("/app/logs/orderbook.png")
+    except Exception as e:
+        logger.error(f"Greška pri serviranju orderbook.png: {e}")
+        return {"status": "error", "message": "Slika nije pronađena"}
 
 @app.post("/manual")
 async def manual_control(command: dict):
+    """Upravlja manualnim komandama i rokada modom."""
     cmd = command.get("command")
     value = command.get("value", "on")
-    logging.info(f"Manual kontrola: {cmd}, vrednost: {value}")
+    logger.info(f"Manual kontrola: {cmd}, vrednost: {value}")
+
     try:
         with open("/app/data.json", "r") as f:
             data = json.load(f)
     except Exception as e:
-        logging.error(f"Greška pri čitanju data.json: {e}")
-        data = {}
+        logger.error(f"Greška pri čitanju data.json: {e}")
+        data = {
+            'price': 0, 'support': 0, 'resistance': 0, 'position': 'None',
+            'balance': 0, 'unimmr': 0, 'logs': [], 'manual': 'off',
+            'rokada': 'off', 'trade_amount': 0.01, 'leverage': 1, 'rsi': 'off'
+        }
 
     if cmd == "toggle":
         data['manual'] = value
@@ -50,108 +64,80 @@ async def manual_control(command: dict):
 
     try:
         with open("/app/data.json", "w") as f:
-            json.dump(data, f)
+            json.dump(data, f, indent=2)
+        logger.info(f"data.json ažuriran sa komandom: {cmd}")
     except Exception as e:
-        logging.error(f"Greška pri pisanju u data.json: {e}")
+        logger.error(f"Greška pri pisanju u data.json: {e}")
 
     return {"status": "success", "command": cmd, "value": value}
 
-
 @app.post("/update_data")
 async def update_data(updates: dict):
-    logging.info(f"Ažuriranje data.json: {updates}")
+    """Ažurira data.json sa novim podacima."""
+    logger.info(f"Ažuriranje data.json: {updates}")
     try:
         with open("/app/data.json", "r") as f:
             data = json.load(f)
     except Exception as e:
-        logging.error(f"Greška pri čitanju data.json: {e}")
-        data = {}
+        logger.error(f"Greška pri čitanju data.json: {e}")
+        data = {
+            'price': 0, 'support': 0, 'resistance': 0, 'position': 'None',
+            'balance': 0, 'unimmr': 0, 'logs': [], 'manual': 'off',
+            'rokada': 'off', 'trade_amount': 0.01, 'leverage': 1, 'rsi': 'off'
+        }
 
     data.update(updates)
     try:
         with open("/app/data.json", "w") as f:
-            json.dump(data, f)
+            json.dump(data, f, indent=2)
+        logger.info("data.json uspešno ažuriran")
     except Exception as e:
-        logging.error(f"Greška pri pisanju u data.json: {e}")
+        logger.error(f"Greška pri pisanju u data.json: {e}")
 
     return {"status": "success", "updates": updates}
 
-
 @app.get("/get_data")
 async def get_data():
+    """Vraća trenutne podatke iz data.json."""
     try:
         with open("/app/data.json", "r") as f:
             data = json.load(f)
-        logging.info(f"Vraćam podatke iz data.json: {data}")
+        logger.info(f"Vraćam podatke iz data.json: {data}")
         return data
     except Exception as e:
-        logging.error(f"Greška pri čitanju data.json: {e}")
-        data = {
-            'price': 0,
-            'support': 0,
-            'resistance': 0,
-            'position': 'None',
-            'balance': 0,
-            'unimmr': 0,
-            'logs': [],
-            'manual': 'off',
-            'rokada': 'off',
-            'trade_amount': 0.01,
-            'leverage': 2,
-            'rsi': 'off'
+        logger.error(f"Greška pri čitanju data.json: {e}")
+        default_data = {
+            'price': 0, 'support': 0, 'resistance': 0, 'position': 'None',
+            'balance': 0, 'unimmr': 0, 'logs': [], 'manual': 'off',
+            'rokada': 'off', 'trade_amount': 0.01, 'leverage': 1, 'rsi': 'off'
         }
-        return data
-
+        return default_data
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
+    """WebSocket za real-time ažuriranje frontenda."""
     await websocket.accept()
-    logging.info("WebSocket konekcija uspostavljena")
-    connected = True
+    logger.info("WebSocket konekcija uspostavljena")
     try:
-        while connected:
+        while True:
             try:
                 with open("/app/data.json", "r") as f:
                     data = json.load(f)
-                logging.info(f"Šaljem podatke preko WebSocket-a: {data}")
-            except Exception as e:
-                logging.error(f"Greška pri čitanju data.json: {e}")
-                data = {
-                    'price': 0,
-                    'support': 0,
-                    'resistance': 0,
-                    'position': 'None',
-                    'balance': 0,
-                    'unimmr': 0,
-                    'logs': [],
-                    'manual': 'off',
-                    'rokada': 'off',
-                    'trade_amount': 0.01,
-                    'leverage': 2,
-                    'rsi': 'off'
-                }
-
-            data.update({
-                'isLive': True,
-                'takeFromHere': False,
-                'tradeAtNight': False,
-                'advancedMode': False,
-                'isRunning': trading_task_running
-            })
-
-            try:
+                data.update({
+                    'isLive': True,
+                    'takeFromHere': False,
+                    'tradeAtNight': False,
+                    'advancedMode': False,
+                    'isRunning': trading_task_running
+                })
                 await websocket.send_json(data)
+                logger.debug("Poslati podaci preko WebSocket-a")
             except Exception as e:
-                logging.error(f"Greška pri slanju WebSocket poruke: {e}")
-                connected = False
+                logger.error(f"Greška pri slanju WebSocket poruke: {e}")
                 break
             await asyncio.sleep(1)
     except Exception as e:
-        logging.error(f"WebSocket greška: {e}")
+        logger.error(f"WebSocket greška: {e}")
     finally:
-        connected = False
-        try:
-            await websocket.close()
-            logging.info("WebSocket konekcija zatvorena")
-        except Exception as e:
-            logging.error(f"Greška pri zatvaranju WebSocket-a: {e}")
+        await websocket.close()
+        logger.info("WebSocket konekcija zatvorena")
